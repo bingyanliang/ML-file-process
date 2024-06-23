@@ -10,9 +10,11 @@ def load_excel_data(file_path):
     excel_data['Posting Date'] = pd.to_datetime(excel_data['Posting Date']).dt.strftime('%m/%d/%Y')
     # Remove leading/trailing spaces from Description
     excel_data['Description'] = excel_data['Description'].str.strip()
+    # Extract integer part of Amount
+    excel_data['Integer Amount'] = excel_data['Amount'].astype(int)
     print("Loaded Excel Data:")
     print(excel_data.head())
-    return excel_data[['Posting Date', 'Amount', 'Description']]
+    return excel_data[['Posting Date', 'Integer Amount', 'Description']]
 
 def rename_files(directory, excel_data):
     files = os.listdir(directory)
@@ -20,29 +22,24 @@ def rename_files(directory, excel_data):
     
     for file in files:
         # Match the file pattern MMDDYYYY_$amount.ext
-        match = re.match(r'(\d{2})(\d{2})(\d{4})_\$(\d+\.?\d*)\.(pdf|jpg)', file)
+        match = re.match(r'(\d{2})(\d{2})(\d{4})_\$(\d+)\.(pdf|jpg)', file)
         if match:
-            month, day, year, amount, ext = match.groups()
+            month, day, year, amount_str, ext = match.groups()
             date = f"{month}/{day}/{year}"
-            amount = float(amount.replace(',', ''))  # Remove commas for consistency
+            amount = int(amount_str)
             print(f"Processing file: {file}, extracted date: {date}, amount: {amount}")
             
-            # Find corresponding entry in the data
-            # Format amounts to two decimal places to ensure precision
-            amount_formatted = f"{amount:.2f}"
-            tolerance = 0.01
-            excel_data['Formatted Amount'] = excel_data['Amount'].apply(lambda x: f"{x:.2f}")
             entry = excel_data[(excel_data['Posting Date'] == date) & 
-                               (abs(excel_data['Amount'] - amount) < tolerance)]
+                               (excel_data['Integer Amount'] == amount)]
             
-            print(f"Matching entries for date {date} and amount {amount_formatted}:")
+            print(f"Matching entries for date {date} and amount {amount}:")
             print(entry)
             
             if not entry.empty:
                 merchant = entry['Description'].values[0]
                 # Clean merchant name
                 merchant_clean = re.sub(r'[^\w\s]', '', merchant).replace(' ', '_')
-                new_name = f"{month}-{day}-{year}_{merchant_clean}_{amount_formatted}.{ext}"
+                new_name = f"{month}-{day}-{year}_{merchant_clean}_{amount}.{ext}"
                 old_file_path = os.path.join(directory, file)
                 new_file_path = os.path.join(directory, new_name)
                 os.rename(old_file_path, new_file_path)
@@ -96,3 +93,4 @@ tk.Button(root, text="Rename Files", command=execute_renaming).grid(row=2, colum
 
 # Run the Tkinter event loop
 root.mainloop()
+
