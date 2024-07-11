@@ -6,7 +6,6 @@ import shutil
 import re
 from datetime import datetime
 
-
 class FileRenamerApp:
     def __init__(self, root):
         self.root = root
@@ -49,6 +48,9 @@ class FileRenamerApp:
 
     def start_processing(self):
         try:
+            if not self.excel_file_path or not self.input_folder_path:
+                raise ValueError("Please select both an Excel file and an input folder.")
+            
             self.matched_folder_path = os.path.join(self.input_folder_path, "matched_files")
             self.unmatched_folder_path = os.path.join(self.input_folder_path, "unmatched_files")
             os.makedirs(self.matched_folder_path, exist_ok=True)
@@ -57,44 +59,45 @@ class FileRenamerApp:
             df = pd.read_excel(self.excel_file_path)
             df['Amount'] = df['Amount'].apply(lambda x: round(x, 2))
 
-            # extract amount from file name
-            def extract_amount(file_name):
+            def process_file(file_path, file):
+                # Split the file name into parts
+                file_name, file_extension = os.path.splitext(file)
+                parts = re.split(r'[_-]', file_name)
+                
+                if len(parts) != 3:
+                    shutil.copy(file_path, os.path.join(self.unmatched_folder_path, file))
+                    self.log_message(f"Invalid file name format: {file}")
+                    return
+
+                original_date, middle_part, amount_part = parts
+
+                # Remove the comma from the amount part for matching
+                amount_str = amount_part.replace(',', '').replace('$', '')
                 try:
-                    # formats: underscore and dash
-                    amount_part = re.search(r'[\$_-](\d+[.,]\d{2})', file_name)
-                    if amount_part:
-                        amount_str = amount_part.group(1).replace(',', '.')
-                        return float(amount_str)
-                    return None
+                    amount = float(amount_str)
                 except ValueError:
-                    return None
+                    shutil.copy(file_path, os.path.join(self.unmatched_folder_path, file))
+                    self.log_message(f"Invalid amount in file name: {file}")
+                    return
+
+                matched_rows = df[df['Amount'] == amount]
+                
+                if not matched_rows.empty:
+                    posting_date = pd.to_datetime(matched_rows.iloc[0]['Posting Date']).strftime('%m%d%Y')
+                    formatted_amount = f"${amount:,.2f}"
+                    new_file_name = f"{posting_date}_{middle_part}_{formatted_amount}{file_extension}"
+                    
+                    new_file_path = os.path.join(self.matched_folder_path, new_file_name)
+                    shutil.copy(file_path, new_file_path)
+                    self.log_message(f"Matched and renamed: {file} -> {new_file_name}")
+                else:
+                    shutil.copy(file_path, os.path.join(self.unmatched_folder_path, file))
+                    self.log_message(f"No match found for: {file}")
 
             for file in os.listdir(self.input_folder_path):
                 if file.endswith(('.pdf', '.jpg', '.jpeg', '.png')):
                     file_path = os.path.join(self.input_folder_path, file)
-                    amount = extract_amount(file)
-                    
-                    if amount is not None:
-                        matched_rows = df[df['Amount'] == amount]
-                        
-                        if not matched_rows.empty:
-                            posting_date = pd.to_datetime(matched_rows.iloc[0]['Posting Date']).strftime('%m%d%Y')
-                            
-                            file_extension = os.path.splitext(file)[1]
-                            
-                            remaining_part_match = re.search(r'[_-](.*)', file)
-                            remaining_part = remaining_part_match.group(1) if remaining_part_match else file
-                            
-                            new_file_name = f"{posting_date}_{remaining_part}"
-                            new_file_path = os.path.join(self.matched_folder_path, new_file_name)
-                            shutil.copy(file_path, new_file_path)
-                            self.log_message(f"Matched and renamed: {file} -> {new_file_name}")
-                        else:
-                            shutil.copy(file_path, os.path.join(self.unmatched_folder_path, file))
-                            self.log_message(f"No match found for: {file}")
-                    else:
-                        shutil.copy(file_path, os.path.join(self.unmatched_folder_path, file))
-                        self.log_message(f"Invalid amount in file name: {file}")
+                    process_file(file_path, file)
 
             messagebox.showinfo("Success", "Files processed successfully!")
             self.log_message("Processing completed successfully.")
