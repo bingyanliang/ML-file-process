@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
-import csv
+import pylightxl as xl
 import os
 import shutil
 import re
@@ -11,7 +11,7 @@ class FileRenamerApp:
         self.root = root
         self.root.title("File Renamer App")
         
-        self.csv_file_path = ""
+        self.excel_file_path = ""
         self.input_folder_path = ""
         self.matched_folder_path = ""
         self.unmatched_folder_path = ""
@@ -19,10 +19,10 @@ class FileRenamerApp:
         self.create_widgets()
 
     def create_widgets(self):
-        tk.Label(self.root, text="CSV File:").grid(row=0, column=0, padx=10, pady=10)
-        self.csv_file_entry = tk.Entry(self.root, width=50)
-        self.csv_file_entry.grid(row=0, column=1, padx=10, pady=10)
-        tk.Button(self.root, text="Browse", command=self.browse_csv_file).grid(row=0, column=2, padx=10, pady=10)
+        tk.Label(self.root, text="Excel File:").grid(row=0, column=0, padx=10, pady=10)
+        self.excel_file_entry = tk.Entry(self.root, width=50)
+        self.excel_file_entry.grid(row=0, column=1, padx=10, pady=10)
+        tk.Button(self.root, text="Browse", command=self.browse_excel_file).grid(row=0, column=2, padx=10, pady=10)
         
         tk.Label(self.root, text="Input Folder:").grid(row=1, column=0, padx=10, pady=10)
         self.input_folder_entry = tk.Entry(self.root, width=50)
@@ -31,10 +31,10 @@ class FileRenamerApp:
         
         tk.Button(self.root, text="Start", command=self.start_processing).grid(row=2, column=1, pady=20)
 
-    def browse_csv_file(self):
-        self.csv_file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
-        self.csv_file_entry.delete(0, tk.END)
-        self.csv_file_entry.insert(0, self.csv_file_path)
+    def browse_excel_file(self):
+        self.excel_file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
+        self.excel_file_entry.delete(0, tk.END)
+        self.excel_file_entry.insert(0, self.excel_file_path)
 
     def browse_input_folder(self):
         self.input_folder_path = filedialog.askdirectory()
@@ -48,23 +48,29 @@ class FileRenamerApp:
 
     def start_processing(self):
         try:
-            if not self.csv_file_path or not self.input_folder_path:
-                raise ValueError("Please select both a CSV file and an input folder.")
+            if not self.excel_file_path or not self.input_folder_path:
+                raise ValueError("Please select both an Excel file and an input folder.")
             
             self.matched_folder_path = os.path.join(self.input_folder_path, "matched_files")
             self.unmatched_folder_path = os.path.join(self.input_folder_path, "unmatched_files")
             os.makedirs(self.matched_folder_path, exist_ok=True)
             os.makedirs(self.unmatched_folder_path, exist_ok=True)
 
-            records = []
-            with open(self.csv_file_path, mode='r', newline='') as file:
-                reader = csv.DictReader(file)
-                for row in reader:
-                    row['Amount'] = round(float(row['Amount']), 2)
-                    records.append(row)
+            # Read the Excel file using pylightxl
+            db = xl.readxl(fn=self.excel_file_path)
+            ws = db.ws(db.ws_names[0])
+            data = list(ws.rows)
 
+            # Extract header and data
+            headers = data[0]
+            data = data[1:]
+
+            # Create a list of dictionaries for easier access
+            df = [{headers[i]: row[i] for i in range(len(headers))} for row in data]
+
+            # Process each file in the input folder
             def process_file(file_path, file):
-                # convert file name into 3 parts divided by 2 underscores
+                # Split the file name into parts
                 file_name, file_extension = os.path.splitext(file)
                 parts = re.split(r'[_-]', file_name)
                 
@@ -75,7 +81,7 @@ class FileRenamerApp:
 
                 original_date, middle_part, amount_part = parts
 
-                # Remove the comma from amount
+                # Remove the comma from the amount part for matching
                 amount_str = amount_part.replace(',', '').replace('$', '')
                 try:
                     amount = float(amount_str)
@@ -84,10 +90,10 @@ class FileRenamerApp:
                     self.log_message(f"Invalid amount in file name: {file}")
                     return
 
-                matched_row = next((row for row in records if row['Amount'] == amount), None)
+                matched_rows = [row for row in df if row['Amount'] == amount]
                 
-                if matched_row:
-                    posting_date = datetime.strptime(matched_row['Posting Date'], '%m/%d/%Y').strftime('%m%d%Y')
+                if matched_rows:
+                    posting_date = datetime.strptime(matched_rows[0]['Posting Date'], '%Y/%m/%d').strftime('%m%d%Y')
                     formatted_amount = f"${amount:,.2f}"
                     new_file_name = f"{posting_date}_{middle_part}_{formatted_amount}{file_extension}"
                     
