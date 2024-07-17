@@ -65,6 +65,11 @@ class FileRenamerApp:
             headers = data[0]
             data = data[1:]
 
+            # add a column for matched files
+            if 'Matched' not in headers:
+                headers.append('Matched')
+
+
             # Create a list of dictionaries for easier access
             df = [{headers[i]: row[i] for i in range(len(headers))} for row in data]
 
@@ -100,6 +105,12 @@ class FileRenamerApp:
                     new_file_path = os.path.join(self.matched_folder_path, new_file_name)
                     shutil.copy(file_path, new_file_path)
                     self.log_message(f"Matched and renamed: {file} -> {new_file_name}")
+
+                    # update matched marks
+                    for row in df:
+                        if row['Amount'] == amount:
+                            row['Matched'] = 'Y'
+
                 else:
                     shutil.copy(file_path, os.path.join(self.unmatched_folder_path, file))
                     self.log_message(f"No match found for: {file}")
@@ -109,8 +120,15 @@ class FileRenamerApp:
                     file_path = os.path.join(self.input_folder_path, file)
                     process_file(file_path, file)
 
+            # Write the updated data back to the Excel file
+            new_data = [headers] + [[row[header] for header in headers] for row in df]
+            db.ws(ws.name).update_index(row=1, col=1, val=new_data)
+
+            xl.writexl(db=db, fn=self.excel_file_path)
+
             messagebox.showinfo("Success", "Files processed successfully!")
             self.log_message("Processing completed successfully.")
+            
         except Exception as e:
             messagebox.showerror("Error", str(e))
             self.log_message(f"Error: {str(e)}")

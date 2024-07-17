@@ -1,4 +1,5 @@
-test\
+test
 .venv\
 file_rename-package\
 file_rename_package.zip
+test.ipynb
