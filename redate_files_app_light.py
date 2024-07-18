@@ -69,7 +69,6 @@ class FileRenamerApp:
             if 'Matched' not in headers:
                 headers.append('Matched')
 
-
             # Create a list of dictionaries for easier access
             df = [{headers[i]: row[i] for i in range(len(headers))} for row in data]
 

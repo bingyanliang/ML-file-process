@@ -1,9 +1,10 @@
 import os
 import re
 import shutil
+import tkinter as tk
 from datetime import datetime
 from tkinter import filedialog, messagebox
-from excel_utils import read_excel, write_excel
+from excel_utils import read_excel, write_excel, update_category_col
 from file_utils import log_message
 
 class FileRenamerApp:
@@ -32,6 +33,7 @@ class FileRenamerApp:
         Button(self.root, text="Browse", command=self.browse_input_folder).grid(row=1, column=2, padx=10, pady=10)
         
         Button(self.root, text="Start", command=self.start_processing).grid(row=2, column=1, pady=20)
+        Button(self.root, text="Update Category", command=self.update_category).grid(row=3, column=1, pady=10)
 
     def browse_excel_file(self):
         self.excel_file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
@@ -53,11 +55,13 @@ class FileRenamerApp:
             os.makedirs(self.matched_folder_path, exist_ok=True)
             os.makedirs(self.unmatched_folder_path, exist_ok=True)
 
-            headers, data = read_excel(self.excel_file_path)
+            headers, data, wb, ws = read_excel(self.excel_file_path)
 
             # Add a new column for the match status
             if 'Matched' not in headers:
+                headers = list(headers)  # Convert headers tuple to list
                 headers.append('Matched')
+                ws.cell(row=1, column=len(headers), value='Matched')
 
             # Create a list of dictionaries for easier access
             df = [
@@ -71,7 +75,7 @@ class FileRenamerApp:
                     self.process_file(file_path, file, df, headers)
 
             # Write the updated data back to the Excel file
-            write_excel(self.excel_file_path, headers, df)
+            write_excel(self.excel_file_path, headers, df, wb, ws)
 
             messagebox.showinfo("Success", "Files processed successfully!")
             log_message(self.unmatched_folder_path, "Processing completed successfully.")
@@ -103,9 +107,14 @@ class FileRenamerApp:
         matched_rows = [row for row in df if row['Amount'] == amount]
         
         if matched_rows:
-            posting_date = datetime.strptime(matched_rows[0]['Posting Date'], '%Y-%m-%d').strftime('%m%d%Y')
+            posting_date = matched_rows[0]['Posting Date']
+            if isinstance(posting_date, datetime):
+                posting_date_str = posting_date.strftime('%m%d%Y')
+            else:
+                posting_date_str = datetime.strptime(posting_date, '%Y/%m/%d').strftime('%m%d%Y')
+
             formatted_amount = f"${amount:,.2f}"
-            new_file_name = f"{posting_date}_{middle_part}_{formatted_amount}{file_extension}"
+            new_file_name = f"{posting_date_str}_{middle_part}_{formatted_amount}{file_extension}"
             
             new_file_path = os.path.join(self.matched_folder_path, new_file_name)
             shutil.copy(file_path, new_file_path)
@@ -118,3 +127,17 @@ class FileRenamerApp:
         else:
             shutil.copy(file_path, os.path.join(self.unmatched_folder_path, file))
             log_message(self.unmatched_folder_path, f"No match found for: {file}")
+
+    def update_category(self):
+        try: 
+            if not self.excel_file_path:
+                raise ValueError("Please select an excel file")
+            
+            headers, data, wb, ws = read_excel(self.excel_file_path)
+            headers = list(headers)
+            update_category_col(headers, data, wb, ws)
+            wb.save(self.excel_file_path)
+
+        except Exception as e:
+            messagebox.showerror('Error', str(e))
+            log_message(self.unmatched_folder_path, f"Error: {str(e)}")
