@@ -5,7 +5,6 @@ import tkinter as tk
 from datetime import datetime
 from tkinter import filedialog, messagebox
 from excel_utils import read_excel, write_excel, update_category_col
-from file_utils import log_message
 
 class FileRenamerApp:
     def __init__(self, root):
@@ -78,10 +77,8 @@ class FileRenamerApp:
             write_excel(self.excel_file_path, headers, df, wb, ws)
 
             messagebox.showinfo("Success", "Files processed successfully!")
-            log_message(self.unmatched_folder_path, "Processing completed successfully.")
         except Exception as e:
             messagebox.showerror("Error", str(e))
-            log_message(self.unmatched_folder_path, f"Error: {str(e)}")
 
     def process_file(self, file_path, file, df, headers):
         # Split the file name into parts
@@ -90,7 +87,6 @@ class FileRenamerApp:
         
         if len(parts) != 3:
             shutil.copy(file_path, os.path.join(self.unmatched_folder_path, file))
-            log_message(self.unmatched_folder_path, f"Invalid file name format: {file}")
             return
 
         original_date, middle_part, amount_part = parts
@@ -101,7 +97,6 @@ class FileRenamerApp:
             amount = float(amount_str)
         except ValueError:
             shutil.copy(file_path, os.path.join(self.unmatched_folder_path, file))
-            log_message(self.unmatched_folder_path, f"Invalid amount in file name: {file}")
             return
 
         matched_rows = [row for row in df if row['Amount'] == amount]
@@ -118,7 +113,6 @@ class FileRenamerApp:
             
             new_file_path = os.path.join(self.matched_folder_path, new_file_name)
             shutil.copy(file_path, new_file_path)
-            log_message(self.unmatched_folder_path, f"Matched and renamed: {file} -> {new_file_name}")
 
             # Update the matched rows with 'Y'
             for row in df:
@@ -126,7 +120,6 @@ class FileRenamerApp:
                     row['Matched'] = 'Y'
         else:
             shutil.copy(file_path, os.path.join(self.unmatched_folder_path, file))
-            log_message(self.unmatched_folder_path, f"No match found for: {file}")
 
     def update_category(self):
         try: 
@@ -137,7 +130,7 @@ class FileRenamerApp:
             headers = list(headers)
             update_category_col(headers, data, wb, ws)
             wb.save(self.excel_file_path)
+            messagebox.showinfo("Success", "Category updated successfully!")
 
         except Exception as e:
             messagebox.showerror('Error', str(e))
-            log_message(self.unmatched_folder_path, f"Error: {str(e)}")
