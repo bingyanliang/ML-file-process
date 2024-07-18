@@ -1,2 +1,0 @@
-2024-07-18 14:28:21.301695 - Error: [Errno 13] Permission denied: 'C:/Users/Bonnie/Documents/ML-file-process/test/CreditCardAsof05312024.xlsx'
-2024-07-18 14:29:24.747315 - Error: [Errno 13] Permission denied: 'C:/Users/Bonnie/Documents/ML-file-process/test/CreditCardAsof05312024.xlsx'
