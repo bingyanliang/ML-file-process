@@ -4,7 +4,7 @@ import shutil
 import tkinter as tk
 from datetime import datetime
 from tkinter import filedialog, messagebox
-from excel_utils import read_excel, write_excel, update_category_col
+from excel_utils import read_excel, write_excel, update_category_col, apply_row_colors
 
 class FileRenamerApp:
     def __init__(self, root):
@@ -74,9 +74,11 @@ class FileRenamerApp:
                     self.process_file(file_path, file, df, headers)
 
             # Write the updated data back to the Excel file
+            apply_row_colors(headers, data, wb, ws)
             write_excel(self.excel_file_path, headers, df, wb, ws)
 
             messagebox.showinfo("Success", "Files processed successfully!")
+            
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -129,7 +131,9 @@ class FileRenamerApp:
             headers, data, wb, ws = read_excel(self.excel_file_path)
             headers = list(headers)
             update_category_col(headers, data, wb, ws)
+            apply_row_colors(headers, data, wb, ws)
             wb.save(self.excel_file_path)
+
             messagebox.showinfo("Success", "Category updated successfully!")
 
         except Exception as e:

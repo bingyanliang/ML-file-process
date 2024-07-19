@@ -1,5 +1,5 @@
 import openpyxl
-from openpyxl.styles import Border, Side
+from openpyxl.styles import Border, Side, PatternFill, NamedStyle
 
 thin_border = Border(
     left=Side(style='thin'),
@@ -66,6 +66,28 @@ def update_category_col(headers, data, wb, ws):
     
     ws.cell(row=1, column=category_col_idx).border = thin_border
 
+def apply_row_colors(headers, data, wb, ws):
+    matched_index = headers.index('Matched')
+
+    good_style = NamedStyle(name="good_style")
+    good_style.fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+    good_style.font = openpyxl.styles.Font(color="006100")
+
+    neutral_style = NamedStyle(name="neutral_style")
+    neutral_style.fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+    neutral_style.font = openpyxl.styles.Font(color="9C5700")
+    if "good_style" not in wb.named_styles:
+        wb.add_named_style(good_style)
+    if "neutral_style" not in wb.named_styles:
+        wb.add_named_style(neutral_style)
+
+    for row_index, row_data in enumerate(data, start=2):
+        matched_value = row_data[matched_index]
+        style = good_style if matched_value == 'Y' else neutral_style
+
+        for col_index in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_index, column=col_index)
+            cell.style = style
 
 
 
